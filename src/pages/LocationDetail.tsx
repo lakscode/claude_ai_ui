@@ -28,7 +28,7 @@ const LocationDetail = () => {
     <div className="location-detail">
       <div className="location-header">
         <Link to="/" className="back-link">
-          ← Back to Locations
+           Back to Locations
         </Link>
         <h1>{locationName}</h1>
         <p className="address">

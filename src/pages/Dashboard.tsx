@@ -10,19 +10,28 @@ const Dashboard = () => {
     return <div className="no-data">Document not found</div>;
   }
 
-  // Group clauses by type
+  // Count clauses by type - each clause type has a values array
   const clausesByType = document.clauses.reduce((acc, clause) => {
-    acc[clause.type] = (acc[clause.type] || 0) + 1;
+    acc[clause.type] = clause.values.length;
     return acc;
   }, {} as Record<string, number>);
 
-  // Calculate average confidence
-  const avgConfidence = document.clauses.length > 0
-    ? document.clauses.reduce((sum, c) => sum + c.confidence, 0) / document.clauses.length
+  // Calculate total clause values (all individual clauses across all types)
+  const totalClauseValues = document.clauses.reduce((sum, clause) => sum + clause.values.length, 0);
+
+  // Calculate average confidence across all clause values
+  const allConfidences = document.clauses.flatMap(clause =>
+    clause.values.map(v => v.confidence)
+  );
+  const avgConfidence = allConfidences.length > 0
+    ? allConfidences.reduce((sum, c) => sum + c, 0) / allConfidences.length
     : 0;
 
   // Count fields with values
   const fieldsWithValues = document.fields.filter(f => f.values.length > 0).length;
+
+  // Number of clause types
+  const totalClauseTypes = document.clauses.length;
 
   return (
     <div className="dashboard">
@@ -31,8 +40,8 @@ const Dashboard = () => {
       <div className="dashboard-grid">
         <div className="dashboard-card">
           <h3>Total Clauses</h3>
-          <div className="big-number">{document.total_clauses}</div>
-          <p>{document.clauses.length} displayed in this view</p>
+          <div className="big-number">{totalClauseValues}</div>
+          <p>{totalClauseTypes} clause types identified</p>
         </div>
 
         <div className="dashboard-card">
@@ -84,7 +93,7 @@ const Dashboard = () => {
           <div className="key-info-item">
             <span className="key-label">Lease Period</span>
             <span className="key-value">
-              {getFieldValue(document, 'Lease Start Date')} - {getFieldValue(document, 'Lease End Date')}
+              {getFieldValue(document, 'Term Start Date')} - {getFieldValue(document, 'Term End Date')}
             </span>
           </div>
         </div>
