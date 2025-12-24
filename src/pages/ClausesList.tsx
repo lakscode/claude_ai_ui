@@ -1,23 +1,31 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useLeaseData } from '../context/LeaseDataContext';
-import type { Clause } from '../types';
+import { EditIcon, DeleteIcon, SaveIcon, CancelIcon } from '../components/Icons';
+import type { Clause, ClauseValue } from '../types';
 
 const ClausesList = () => {
   const { locationId } = useParams<{ locationId: string }>();
   const { getDocumentById, updateClause, deleteClause } = useLeaseData();
   const document = getDocumentById(locationId || '');
 
-  const [editingClause, setEditingClause] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<Clause | null>(null);
+  // Track editing by clause type index and value index within that type
+  const [editingClause, setEditingClause] = useState<{ typeIndex: number; valueIndex: number } | null>(null);
+  const [editForm, setEditForm] = useState<{ type: string; value: ClauseValue } | null>(null);
 
   if (!document) {
     return <div className="no-data">Document not found</div>;
   }
 
-  const handleEdit = (clause: Clause) => {
-    setEditingClause(clause.clause_index);
-    setEditForm({ ...clause });
+  // Count total individual clause values
+  const totalClauseValues = document.clauses.reduce((sum, clause) => sum + clause.values.length, 0);
+
+  const handleEdit = (typeIndex: number, valueIndex: number, clause: Clause, clauseValue: ClauseValue) => {
+    setEditingClause({ typeIndex, valueIndex });
+    setEditForm({
+      type: clause.type,
+      value: { ...clauseValue }
+    });
   };
 
   const handleCancelEdit = () => {
@@ -25,88 +33,137 @@ const ClausesList = () => {
     setEditForm(null);
   };
 
-  const handleSaveEdit = () => {
-    if (editForm && locationId) {
-      updateClause(locationId, editForm.clause_index, editForm);
+  const handleSaveEdit = (typeIndex: number) => {
+    if (editForm && editingClause && locationId) {
+      const originalClause = document.clauses[typeIndex];
+      const updatedValues = originalClause.values.map((v, idx) =>
+        idx === editingClause.valueIndex ? editForm.value : v
+      );
+      const updatedClause: Clause = {
+        ...originalClause,
+        type: editForm.type,
+        values: updatedValues
+      };
+      updateClause(locationId, typeIndex, updatedClause);
       setEditingClause(null);
       setEditForm(null);
     }
   };
 
-  const handleDelete = (clauseIndex: number) => {
-    if (locationId && window.confirm('Are you sure you want to delete this clause?')) {
-      deleteClause(locationId, clauseIndex);
+  const handleDeleteValue = (typeIndex: number, valueIndex: number) => {
+    if (!locationId) return;
+
+    const clause = document.clauses[typeIndex];
+    if (clause.values.length === 1) {
+      // If this is the last value in the type, delete the entire clause type
+      if (window.confirm('This is the last clause in this type. Delete the entire clause type?')) {
+        deleteClause(locationId, typeIndex);
+      }
+    } else {
+      // Remove just this value from the clause type
+      if (window.confirm('Are you sure you want to delete this clause?')) {
+        const updatedValues = clause.values.filter((_, idx) => idx !== valueIndex);
+        const updatedClause: Clause = {
+          ...clause,
+          values: updatedValues
+        };
+        updateClause(locationId, typeIndex, updatedClause);
+      }
     }
   };
 
-  const handleFormChange = (field: keyof Clause, value: string | number) => {
+  const handleFormChange = (field: keyof ClauseValue | 'type', value: string | number) => {
     if (editForm) {
-      setEditForm({ ...editForm, [field]: value });
+      if (field === 'type') {
+        setEditForm({ ...editForm, type: value as string });
+      } else {
+        setEditForm({
+          ...editForm,
+          value: { ...editForm.value, [field]: value }
+        });
+      }
     }
   };
 
   return (
     <div className="clauses-list">
       <div className="clauses-header">
-        <h2>Clauses ({document.clauses.length})</h2>
+        <h2>Clauses ({totalClauseValues})</h2>
+        <span className="clause-types-count">{document.clauses.length} clause types</span>
       </div>
 
       {document.clauses.length === 0 ? (
         <p className="no-data">No clauses extracted from this document.</p>
       ) : (
         <div className="clauses-container">
-          {document.clauses.map((clause) => (
-            <div key={clause.clause_index} className="clause-card">
-              {editingClause === clause.clause_index && editForm ? (
-                <div className="clause-edit-form">
-                  <div className="form-group">
-                    <label>Type</label>
-                    <input
-                      type="text"
-                      value={editForm.type}
-                      onChange={(e) => handleFormChange('type', e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Text</label>
-                    <textarea
-                      value={editForm.text}
-                      onChange={(e) => handleFormChange('text', e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Confidence</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="1"
-                      value={editForm.confidence}
-                      onChange={(e) => handleFormChange('confidence', parseFloat(e.target.value))}
-                    />
-                  </div>
-                  <div className="edit-actions">
-                    <button className="btn-primary" onClick={handleSaveEdit}>Save</button>
-                    <button className="btn-secondary" onClick={handleCancelEdit}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="clause-header">
-                    <span className="clause-index">#{clause.clause_index + 1}</span>
-                    <span className="clause-type">{clause.type}</span>
-                    <span className="clause-confidence">
-                      {(clause.confidence * 100).toFixed(1)}% confidence
-                    </span>
-                    <div className="clause-actions">
-                      <button className="btn-edit" onClick={() => handleEdit(clause)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(clause.clause_index)}>Delete</button>
+          {document.clauses.map((clause, typeIndex) => (
+            <div key={`${clause.type_id}-${typeIndex}`} className="clause-type-group">
+              <div className="clause-type-header">
+                <span className="clause-type-badge">{clause.type}</span>
+                <span className="clause-count">{clause.values.length} clause{clause.values.length !== 1 ? 's' : ''}</span>
+              </div>
+
+              {clause.values.map((clauseValue, valueIndex) => (
+                <div key={`${clauseValue.clause_index}-${valueIndex}`} className="clause-card">
+                  {editingClause?.typeIndex === typeIndex && editingClause?.valueIndex === valueIndex && editForm ? (
+                    <div className="clause-edit-form">
+                      <div className="form-group">
+                        <label>Type</label>
+                        <input
+                          type="text"
+                          value={editForm.type}
+                          onChange={(e) => handleFormChange('type', e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Text</label>
+                        <textarea
+                          value={editForm.value.text}
+                          onChange={(e) => handleFormChange('text', e.target.value)}
+                          rows={4}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Confidence</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={editForm.value.confidence}
+                          onChange={(e) => handleFormChange('confidence', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div className="edit-actions">
+                        <button className="btn-save" onClick={() => handleSaveEdit(typeIndex)}>
+                          <SaveIcon /> Save
+                        </button>
+                        <button className="btn-cancel" onClick={handleCancelEdit}>
+                          <CancelIcon /> Cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <p className="clause-text">{clause.text}</p>
-                </>
-              )}
+                  ) : (
+                    <>
+                      <div className="clause-header">
+                        <span className="clause-index">#{clauseValue.clause_index + 1}</span>
+                        <span className="clause-confidence">
+                          {(clauseValue.confidence * 100).toFixed(1)}% confidence
+                        </span>
+                        <div className="clause-actions">
+                          <button className="btn-edit" onClick={() => handleEdit(typeIndex, valueIndex, clause, clauseValue)}>
+                            <EditIcon /> Edit
+                          </button>
+                          <button className="btn-delete" onClick={() => handleDeleteValue(typeIndex, valueIndex)}>
+                            <DeleteIcon /> Delete
+                          </button>
+                        </div>
+                      </div>
+                      <p className="clause-text">{clauseValue.text}</p>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           ))}
         </div>

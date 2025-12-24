@@ -11,29 +11,36 @@ const sampleDocuments: LeaseDocument[] = [
     storage_location: "C:\\Users\\Koncordlaw\\lease_classifier_project\\mnt\\cp-files\\dcd31d4e-2ddf-481d-8d7e-07a6081a1ded_Vanguard-Logic 8.pdf",
     total_clauses: 18,
     total_fields: 19,
+    total_clause_types: 6,
     openai_api_calls: 2,
     field_extraction_enabled: true,
     clauses: [
       {
-        clause_index: 0,
-        text: "EXHIBIT 10.01 COMMERCIAL LEASE AGREEMENT THIS COMMERCIAL LEASE AGREEMENT (this \"Lease\") is made and entered into as of the 1st day of September, 2018, by and between Luisa Fernández, a private individual with her address at 1500 Biscayne Blvd, Miami FL (\"Landlord\"), and VanguardLogic, located at 3250 NE 1st Ave, Miami FL (\"Tenant\").",
         type: "Confidential Information",
         type_id: "5d51128d18b40d3e38ed435c",
-        confidence: 0.0948
+        values: [{
+          clause_index: 0,
+          text: "EXHIBIT 10.01 COMMERCIAL LEASE AGREEMENT THIS COMMERCIAL LEASE AGREEMENT (this \"Lease\") is made and entered into as of the 1st day of September, 2018, by and between Luisa Fernández, a private individual with her address at 1500 Biscayne Blvd, Miami FL (\"Landlord\"), and VanguardLogic, located at 3250 NE 1st Ave, Miami FL (\"Tenant\").",
+          confidence: 0.0948
+        }]
       },
       {
-        clause_index: 1,
-        text: "In consideration of the covenants and agreements herein contained, Landlord does hereby lease, let, and demise unto Tenant, and Tenant does hereby lease from Landlord, the property located at 3100 River Drive, Miami FL 33142 (the \"Premises\"), to be used exclusively for the operation of a software business under the name VanguardLogic.",
         type: "Assignment and Subleasing",
         type_id: "63f37d2c0d2f74adc82f4103",
-        confidence: 0.0806
+        values: [{
+          clause_index: 1,
+          text: "In consideration of the covenants and agreements herein contained, Landlord does hereby lease, let, and demise unto Tenant, and Tenant does hereby lease from Landlord, the property located at 3100 River Drive, Miami FL 33142 (the \"Premises\"), to be used exclusively for the operation of a software business under the name VanguardLogic.",
+          confidence: 0.0806
+        }]
       },
       {
-        clause_index: 2,
-        text: "The lease term shall commence on September 1, 2018, and shall expire on August 31, 2024, with the option to renew as outlined in the \"Lease Renewal\" section of this Agreement.",
         type: "Renewal",
         type_id: "63f37d2c0d2f74adc82f4107",
-        confidence: 0.0664
+        values: [{
+          clause_index: 2,
+          text: "The lease term shall commence on September 1, 2018, and shall expire on August 31, 2024, with the option to renew as outlined in the \"Lease Renewal\" section of this Agreement.",
+          confidence: 0.0664
+        }]
       }
     ],
     fields: [
@@ -52,15 +59,18 @@ const sampleDocuments: LeaseDocument[] = [
     storage_location: "C:\\Users\\Koncordlaw\\lease_classifier_project\\mnt\\cp-files\\abc123_TechHub-Lease-2023.pdf",
     total_clauses: 15,
     total_fields: 12,
+    total_clause_types: 3,
     openai_api_calls: 2,
     field_extraction_enabled: true,
     clauses: [
       {
-        clause_index: 0,
-        text: "COMMERCIAL LEASE AGREEMENT between Harbor Properties LLC and TechHub Inc.",
         type: "Confidential Information",
         type_id: "5d51128d18b40d3e38ed435c",
-        confidence: 0.0920
+        values: [{
+          clause_index: 0,
+          text: "COMMERCIAL LEASE AGREEMENT between Harbor Properties LLC and TechHub Inc.",
+          confidence: 0.0920
+        }]
       }
     ],
     fields: [
@@ -79,15 +89,18 @@ const sampleDocuments: LeaseDocument[] = [
     storage_location: "C:\\Users\\Koncordlaw\\lease_classifier_project\\mnt\\cp-files\\def456_RetailSpace-Downtown.pdf",
     total_clauses: 22,
     total_fields: 15,
+    total_clause_types: 4,
     openai_api_calls: 3,
     field_extraction_enabled: true,
     clauses: [
       {
-        clause_index: 0,
-        text: "RETAIL LEASE AGREEMENT for premises located in Downtown Chicago.",
         type: "Assignment and Subleasing",
         type_id: "63f37d2c0d2f74adc82f4103",
-        confidence: 0.0850
+        values: [{
+          clause_index: 0,
+          text: "RETAIL LEASE AGREEMENT for premises located in Downtown Chicago.",
+          confidence: 0.0850
+        }]
       }
     ],
     fields: [
@@ -108,10 +121,10 @@ interface LeaseDataContextType {
   refetch: () => void;
   getDocumentById: (id: string) => LeaseDocument | undefined;
   dismissError: () => void;
-  updateClause: (docId: string, clauseIndex: number, updatedClause: Clause) => Promise<void>;
-  deleteClause: (docId: string, clauseIndex: number) => Promise<void>;
-  updateField: (docId: string, fieldId: string, updatedField: Field) => Promise<void>;
-  deleteField: (docId: string, fieldId: string) => Promise<void>;
+  updateClause: (docId: string, clauseTypeIndex: number, updatedClause: Clause) => void;
+  deleteClause: (docId: string, clauseTypeIndex: number) => void;
+  updateField: (docId: string, fieldId: string, updatedField: Field) => void;
+  deleteField: (docId: string, fieldId: string) => void;
 }
 
 const LeaseDataContext = createContext<LeaseDataContextType | undefined>(undefined);
@@ -172,144 +185,52 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
   };
 
-  const updateClause = async (docId: string, clauseIndex: number, updatedClause: Clause) => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/data/${docId}/clauses/${clauseIndex}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedClause),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update clause: ${response.status}`);
+  // Update a clause type (the entire clause object with its values array)
+  const updateClause = (docId: string, clauseTypeIndex: number, updatedClause: Clause) => {
+    setDocuments(prev => prev.map(doc => {
+      if (doc._id === docId) {
+        const newClauses = doc.clauses.map((clause, idx) =>
+          idx === clauseTypeIndex ? updatedClause : clause
+        );
+        return { ...doc, clauses: newClauses };
       }
-
-      // Update local state on success
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newClauses = doc.clauses.map(clause =>
-            clause.clause_index === clauseIndex ? updatedClause : clause
-          );
-          return { ...doc, clauses: newClauses };
-        }
-        return doc;
-      }));
-    } catch (err) {
-      console.error('Error updating clause:', err);
-      // Still update local state even if API fails (for offline/sample data mode)
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newClauses = doc.clauses.map(clause =>
-            clause.clause_index === clauseIndex ? updatedClause : clause
-          );
-          return { ...doc, clauses: newClauses };
-        }
-        return doc;
-      }));
-    }
+      return doc;
+    }));
   };
 
-  const deleteClause = async (docId: string, clauseIndex: number) => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/data/${docId}/clauses/${clauseIndex}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete clause: ${response.status}`);
+  // Delete a clause type (removes the entire clause object)
+  const deleteClause = (docId: string, clauseTypeIndex: number) => {
+    setDocuments(prev => prev.map(doc => {
+      if (doc._id === docId) {
+        const newClauses = doc.clauses.filter((_, idx) => idx !== clauseTypeIndex);
+        // Recalculate total_clauses by summing all values arrays
+        const totalClauses = newClauses.reduce((sum, clause) => sum + clause.values.length, 0);
+        return { ...doc, clauses: newClauses, total_clauses: totalClauses, total_clause_types: newClauses.length };
       }
-
-      // Update local state on success
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newClauses = doc.clauses.filter(clause => clause.clause_index !== clauseIndex);
-          return { ...doc, clauses: newClauses, total_clauses: newClauses.length };
-        }
-        return doc;
-      }));
-    } catch (err) {
-      console.error('Error deleting clause:', err);
-      // Still update local state even if API fails (for offline/sample data mode)
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newClauses = doc.clauses.filter(clause => clause.clause_index !== clauseIndex);
-          return { ...doc, clauses: newClauses, total_clauses: newClauses.length };
-        }
-        return doc;
-      }));
-    }
+      return doc;
+    }));
   };
 
-  const updateField = async (docId: string, fieldId: string, updatedField: Field) => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/data/${docId}/fields/${fieldId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedField),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update field: ${response.status}`);
+  const updateField = (docId: string, fieldId: string, updatedField: Field) => {
+    setDocuments(prev => prev.map(doc => {
+      if (doc._id === docId) {
+        const newFields = doc.fields.map(field =>
+          field.field_id === fieldId ? updatedField : field
+        );
+        return { ...doc, fields: newFields };
       }
-
-      // Update local state on success
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newFields = doc.fields.map(field =>
-            field.field_id === fieldId ? updatedField : field
-          );
-          return { ...doc, fields: newFields };
-        }
-        return doc;
-      }));
-    } catch (err) {
-      console.error('Error updating field:', err);
-      // Still update local state even if API fails (for offline/sample data mode)
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newFields = doc.fields.map(field =>
-            field.field_id === fieldId ? updatedField : field
-          );
-          return { ...doc, fields: newFields };
-        }
-        return doc;
-      }));
-    }
+      return doc;
+    }));
   };
 
-  const deleteField = async (docId: string, fieldId: string) => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/data/${docId}/fields/${fieldId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete field: ${response.status}`);
+  const deleteField = (docId: string, fieldId: string) => {
+    setDocuments(prev => prev.map(doc => {
+      if (doc._id === docId) {
+        const newFields = doc.fields.filter(field => field.field_id !== fieldId);
+        return { ...doc, fields: newFields, total_fields: newFields.length };
       }
-
-      // Update local state on success
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newFields = doc.fields.filter(field => field.field_id !== fieldId);
-          return { ...doc, fields: newFields, total_fields: newFields.length };
-        }
-        return doc;
-      }));
-    } catch (err) {
-      console.error('Error deleting field:', err);
-      // Still update local state even if API fails (for offline/sample data mode)
-      setDocuments(prev => prev.map(doc => {
-        if (doc._id === docId) {
-          const newFields = doc.fields.filter(field => field.field_id !== fieldId);
-          return { ...doc, fields: newFields, total_fields: newFields.length };
-        }
-        return doc;
-      }));
-    }
+      return doc;
+    }));
   };
 
   return (

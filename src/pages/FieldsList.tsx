@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useLeaseData } from '../context/LeaseDataContext';
+import { EditIcon, DeleteIcon, SaveIcon, CancelIcon } from '../components/Icons';
 import type { Field } from '../types';
 
 const FieldsList = () => {
@@ -99,8 +100,12 @@ const FieldsList = () => {
                       {field.clause_indices.map((idx) => `#${idx + 1}`).join(', ')}
                     </td>
                     <td className="field-actions">
-                      <button className="btn-save" onClick={handleSaveEdit}>Save</button>
-                      <button className="btn-cancel" onClick={handleCancelEdit}>Cancel</button>
+                      <button className="btn-save" onClick={handleSaveEdit}>
+                        <SaveIcon /> Save
+                      </button>
+                      <button className="btn-cancel" onClick={handleCancelEdit}>
+                        <CancelIcon /> Cancel
+                      </button>
                     </td>
                   </>
                 ) : (
@@ -117,8 +122,12 @@ const FieldsList = () => {
                       {field.clause_indices.map((idx) => `#${idx + 1}`).join(', ')}
                     </td>
                     <td className="field-actions">
-                      <button className="btn-edit" onClick={() => handleEdit(field)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(field.field_id)}>Delete</button>
+                      <button className="btn-edit" onClick={() => handleEdit(field)}>
+                        <EditIcon /> Edit
+                      </button>
+                      <button className="btn-delete" onClick={() => handleDelete(field.field_id)}>
+                        <DeleteIcon /> Delete
+                      </button>
                     </td>
                   </>
                 )}

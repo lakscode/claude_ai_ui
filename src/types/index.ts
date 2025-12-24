@@ -1,9 +1,13 @@
-export interface Clause {
+export interface ClauseValue {
   clause_index: number;
   text: string;
+  confidence: number;
+}
+
+export interface Clause {
   type: string;
   type_id: string;
-  confidence: number;
+  values: ClauseValue[];
 }
 
 export interface Field {
@@ -21,10 +25,12 @@ export interface LeaseDocument {
   storage_location: string;
   total_clauses: number;
   total_fields: number;
+  total_clause_types?: number;
   openai_api_calls: number;
   field_extraction_enabled: boolean;
   clauses: Clause[];
   fields: Field[];
+  created_at?: string;
 }
 
 // Helper type to get field value by name

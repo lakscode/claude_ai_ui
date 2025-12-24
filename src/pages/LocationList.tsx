@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useLeaseData, getFieldValue } from '../context/LeaseDataContext';
 import Loader from '../components/Loader';
+import { ViewIcon } from '../components/Icons';
 import type { LeaseDocument } from '../types';
 
 // Helper to get location name - Property Address or fallback to pdf_file
@@ -58,7 +59,7 @@ const LocationList = () => {
                 <td className="pdf-file">{doc.pdf_file}</td>
                 <td>
                   <Link to={`/location/${doc._id}`} className="view-btn">
-                    View
+                    <ViewIcon /> View
                   </Link>
                 </td>
               </tr>
