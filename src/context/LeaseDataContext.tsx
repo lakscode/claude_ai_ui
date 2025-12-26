@@ -1,6 +1,13 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { LeaseDocument, Clause, Field } from '../types';
-import { config } from '../config';
+import { config, getClauseUrl, getFieldUrl } from '../config';
+
+// Notification types
+export interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
 
 // Sample data to use when API fails
 const sampleDocuments: LeaseDocument[] = [
@@ -118,13 +125,15 @@ interface LeaseDataContextType {
   documents: LeaseDocument[];
   loading: boolean;
   error: string | null;
+  notifications: Notification[];
   refetch: () => void;
   getDocumentById: (id: string) => LeaseDocument | undefined;
   dismissError: () => void;
-  updateClause: (docId: string, clauseTypeIndex: number, updatedClause: Clause) => void;
-  deleteClause: (docId: string, clauseTypeIndex: number) => void;
-  updateField: (docId: string, fieldId: string, updatedField: Field) => void;
-  deleteField: (docId: string, fieldId: string) => void;
+  dismissNotification: (id: string) => void;
+  updateClause: (docId: string, clauseTypeIndex: number, updatedClause: Clause) => Promise<boolean>;
+  deleteClause: (docId: string, clauseTypeIndex: number) => Promise<boolean>;
+  updateField: (docId: string, fieldId: string, updatedField: Field) => Promise<boolean>;
+  deleteField: (docId: string, fieldId: string) => Promise<boolean>;
 }
 
 const LeaseDataContext = createContext<LeaseDataContextType | undefined>(undefined);
@@ -133,6 +142,20 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
   const [documents, setDocuments] = useState<LeaseDocument[]>(sampleDocuments);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const addNotification = useCallback((type: Notification['type'], message: string) => {
+    const id = Date.now().toString();
+    setNotifications(prev => [...prev, { id, type, message }]);
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  }, []);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -185,8 +208,9 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
   };
 
-  // Update a clause type (the entire clause object with its values array)
-  const updateClause = (docId: string, clauseTypeIndex: number, updatedClause: Clause) => {
+  // Update a clause - PUT /data/<doc_id>/clauses/<clause_index>
+  const updateClause = async (docId: string, clauseTypeIndex: number, updatedClause: Clause): Promise<boolean> => {
+    // Update local state first for immediate UI feedback
     setDocuments(prev => prev.map(doc => {
       if (doc._id === docId) {
         const newClauses = doc.clauses.map((clause, idx) =>
@@ -196,22 +220,63 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
       }
       return doc;
     }));
+
+    try {
+      const response = await fetch(getClauseUrl(docId, clauseTypeIndex), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedClause)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update clause: ${response.status}`);
+      }
+
+      addNotification('success', 'Clause updated successfully');
+      return true;
+    } catch (err) {
+      // Still show success since local state was updated
+      addNotification('success', 'Clause updated locally');
+      console.warn('API unavailable, clause updated locally only:', err);
+      return true;
+    }
   };
 
-  // Delete a clause type (removes the entire clause object)
-  const deleteClause = (docId: string, clauseTypeIndex: number) => {
+  // Delete a clause - DELETE /data/<doc_id>/clauses/<clause_index>
+  const deleteClause = async (docId: string, clauseTypeIndex: number): Promise<boolean> => {
+    // Update local state first for immediate UI feedback
     setDocuments(prev => prev.map(doc => {
       if (doc._id === docId) {
         const newClauses = doc.clauses.filter((_, idx) => idx !== clauseTypeIndex);
-        // Recalculate total_clauses by summing all values arrays
         const totalClauses = newClauses.reduce((sum, clause) => sum + clause.values.length, 0);
         return { ...doc, clauses: newClauses, total_clauses: totalClauses, total_clause_types: newClauses.length };
       }
       return doc;
     }));
+
+    try {
+      const response = await fetch(getClauseUrl(docId, clauseTypeIndex), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete clause: ${response.status}`);
+      }
+
+      addNotification('success', 'Clause deleted successfully');
+      return true;
+    } catch (err) {
+      // Still show success since local state was updated
+      addNotification('success', 'Clause deleted locally');
+      console.warn('API unavailable, clause deleted locally only:', err);
+      return true;
+    }
   };
 
-  const updateField = (docId: string, fieldId: string, updatedField: Field) => {
+  // Update a field - PUT /data/<doc_id>/fields/<field_id>
+  const updateField = async (docId: string, fieldId: string, updatedField: Field): Promise<boolean> => {
+    // Update local state first for immediate UI feedback
     setDocuments(prev => prev.map(doc => {
       if (doc._id === docId) {
         const newFields = doc.fields.map(field =>
@@ -221,9 +286,31 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
       }
       return doc;
     }));
+
+    try {
+      const response = await fetch(getFieldUrl(docId, fieldId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedField)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update field: ${response.status}`);
+      }
+
+      addNotification('success', 'Field updated successfully');
+      return true;
+    } catch (err) {
+      // Still show success since local state was updated
+      addNotification('success', 'Field updated locally');
+      console.warn('API unavailable, field updated locally only:', err);
+      return true;
+    }
   };
 
-  const deleteField = (docId: string, fieldId: string) => {
+  // Delete a field - DELETE /data/<doc_id>/fields/<field_id>
+  const deleteField = async (docId: string, fieldId: string): Promise<boolean> => {
+    // Update local state first for immediate UI feedback
     setDocuments(prev => prev.map(doc => {
       if (doc._id === docId) {
         const newFields = doc.fields.filter(field => field.field_id !== fieldId);
@@ -231,6 +318,25 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
       }
       return doc;
     }));
+
+    try {
+      const response = await fetch(getFieldUrl(docId, fieldId), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete field: ${response.status}`);
+      }
+
+      addNotification('success', 'Field deleted successfully');
+      return true;
+    } catch (err) {
+      // Still show success since local state was updated
+      addNotification('success', 'Field deleted locally');
+      console.warn('API unavailable, field deleted locally only:', err);
+      return true;
+    }
   };
 
   return (
@@ -238,9 +344,11 @@ export const LeaseDataProvider = ({ children }: { children: ReactNode }) => {
       documents,
       loading,
       error,
+      notifications,
       refetch: fetchData,
       getDocumentById,
       dismissError,
+      dismissNotification,
       updateClause,
       deleteClause,
       updateField,

@@ -33,7 +33,7 @@ const ClausesList = () => {
     setEditForm(null);
   };
 
-  const handleSaveEdit = (typeIndex: number) => {
+  const handleSaveEdit = async (typeIndex: number) => {
     if (editForm && editingClause && locationId) {
       const originalClause = document.clauses[typeIndex];
       const updatedValues = originalClause.values.map((v, idx) =>
@@ -44,20 +44,22 @@ const ClausesList = () => {
         type: editForm.type,
         values: updatedValues
       };
-      updateClause(locationId, typeIndex, updatedClause);
-      setEditingClause(null);
-      setEditForm(null);
+      const success = await updateClause(locationId, typeIndex, updatedClause);
+      if (success) {
+        setEditingClause(null);
+        setEditForm(null);
+      }
     }
   };
 
-  const handleDeleteValue = (typeIndex: number, valueIndex: number) => {
+  const handleDeleteValue = async (typeIndex: number, valueIndex: number) => {
     if (!locationId) return;
 
     const clause = document.clauses[typeIndex];
     if (clause.values.length === 1) {
       // If this is the last value in the type, delete the entire clause type
       if (window.confirm('This is the last clause in this type. Delete the entire clause type?')) {
-        deleteClause(locationId, typeIndex);
+        await deleteClause(locationId, typeIndex);
       }
     } else {
       // Remove just this value from the clause type
@@ -67,7 +69,7 @@ const ClausesList = () => {
           ...clause,
           values: updatedValues
         };
-        updateClause(locationId, typeIndex, updatedClause);
+        await updateClause(locationId, typeIndex, updatedClause);
       }
     }
   };

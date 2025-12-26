@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import AllLocationsDashboard from './pages/AllLocationsDashboard';
 import Settings from './pages/Settings';
 import Loader from './components/Loader';
+import Notifications from './components/Notifications';
 import './App.css';
 
 // Protected Route wrapper component
@@ -71,6 +72,7 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <LeaseDataProvider>
+              <Notifications />
               <MainLayout>
                 <Routes>
                   <Route path="/" element={<LocationList />} />

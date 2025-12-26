@@ -69,11 +69,11 @@ const DocumentDetails = () => {
           </div>
           <div className="detail-row">
             <span className="label">Lease Start</span>
-            <span className="value">{getFieldValue(document, 'Lease Start Date')}</span>
+            <span className="value">{getFieldValue(document, 'Term Start Date')}</span>
           </div>
           <div className="detail-row">
             <span className="label">Lease End</span>
-            <span className="value">{getFieldValue(document, 'Lease End Date')}</span>
+            <span className="value">{getFieldValue(document, 'Term End Date')}</span>
           </div>
         </div>
 

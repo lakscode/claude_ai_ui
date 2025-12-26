@@ -26,17 +26,19 @@ const FieldsList = () => {
     setEditForm(null);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editForm && locationId) {
-      updateField(locationId, editForm.field_id, editForm);
-      setEditingField(null);
-      setEditForm(null);
+      const success = await updateField(locationId, editForm.field_id, editForm);
+      if (success) {
+        setEditingField(null);
+        setEditForm(null);
+      }
     }
   };
 
-  const handleDelete = (fieldId: string) => {
+  const handleDelete = async (fieldId: string) => {
     if (locationId && window.confirm('Are you sure you want to delete this field?')) {
-      deleteField(locationId, fieldId);
+      await deleteField(locationId, fieldId);
     }
   };
 
