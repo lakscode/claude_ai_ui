@@ -186,12 +186,45 @@ body {
   padding: 1.5rem 2rem;
   border-bottom: none;
   box-shadow: 0 4px 12px rgba(66, 85, 99, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .location-list-header h1 {
   margin: 0;
   color: white;
   font-size: 1.75rem;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .locations-table-container {
@@ -428,6 +461,17 @@ body {
   padding: 1.5rem 2rem;
   border-bottom: none;
   background: var(--gradient-primary);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.header-top .back-link {
+  margin-bottom: 0;
 }
 
 .back-link {

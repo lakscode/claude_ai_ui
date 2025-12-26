@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useLeaseData, getFieldValue } from '../context/LeaseDataContext';
 import Loader from '../components/Loader';
-import { ViewIcon } from '../components/Icons';
+import { ViewIcon, RefreshIcon } from '../components/Icons';
 import type { LeaseDocument } from '../types';
 
 // Helper to get location name - Property Address or fallback to pdf_file
@@ -11,7 +11,7 @@ const getLocationName = (doc: LeaseDocument) => {
 };
 
 const LocationList = () => {
-  const { documents, loading } = useLeaseData();
+  const { documents, loading, refetch } = useLeaseData();
 
   if (loading) {
     return (
@@ -28,6 +28,9 @@ const LocationList = () => {
     <div className="location-list-page">
       <div className="location-list-header">
         <h1>Locations</h1>
+        <button onClick={refetch} className="refresh-btn" disabled={loading}>
+          <RefreshIcon /> Refresh
+        </button>
       </div>
 
       {/* Desktop Table View */}

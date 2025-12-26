@@ -1,10 +1,11 @@
 import { useParams, NavLink, Outlet, Link } from 'react-router-dom';
 import { useLeaseData, getFieldValue } from '../context/LeaseDataContext';
 import Loader from '../components/Loader';
+import { RefreshIcon } from '../components/Icons';
 
 const LocationDetail = () => {
   const { locationId } = useParams<{ locationId: string }>();
-  const { getDocumentById, loading } = useLeaseData();
+  const { getDocumentById, loading, refetch } = useLeaseData();
   const document = getDocumentById(locationId || '');
 
   if (loading) {
@@ -27,9 +28,14 @@ const LocationDetail = () => {
   return (
     <div className="location-detail">
       <div className="location-header">
-        <Link to="/" className="back-link">
-           Back to Locations
-        </Link>
+        <div className="header-top">
+          <Link to="/" className="back-link">
+             Back to Locations
+          </Link>
+          <button onClick={refetch} className="refresh-btn" disabled={loading}>
+            <RefreshIcon /> Refresh
+          </button>
+        </div>
         <h1>{locationName}</h1>
         <p className="address">
           Tenant: {getFieldValue(document, 'Tenant Name')} | Landlord: {getFieldValue(document, 'Landlord Name')}
